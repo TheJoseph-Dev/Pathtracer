@@ -10,10 +10,17 @@ uint wang_hash(inout uint seed)
     seed = seed ^ (seed >> 15);
     return seed;
 }
+
+uint pcg_hash(inout uint seed)
+{
+    seed = seed * 747796405u + 2891336453u;
+    uint word = ((seed >> ((seed >> 28u) + 4u)) ^ seed) * 277803737u;
+    return (word >> 22u) ^ word;
+}
  
 float RandomFloat01(inout uint state)
 {
-    return float(wang_hash(state)) / 4294967296.0;
+    return float(pcg_hash(state)) / 4294967296.0;
 }
  
 vec3 RandomUnitVector(inout uint state)

@@ -28,7 +28,7 @@ struct RenderData {
 
 #define MAX_DIST 100.0
 #define MAX_LIGHT_BOUNCES 5
-vec3 lightPos = normalize(vec3(1.0));
+vec3 lightPos = vec3(0.0, 2.0, 0.0); //normalize(vec3(1.0));
 
 
 
@@ -56,13 +56,13 @@ Scene world(Ray ray) {
     Scene scene;
     scene.d = MAX_DIST;
     
-    Material m1 = Material(vec4(0.1, 0.7, 0.9, 1.0), 0.2, 0.0, false); // sin(iTime)*0.5 + 0.5
-    Material m2 = Material(vec4(0.9, 0.4, 0.1, 1.0), 0.1, 0.5, false);
+    Material m1 = Material(vec4(0.1, 0.7, 0.9, 1.0), 1.0, 0.0, false); // sin(iTime)*0.5 + 0.5
+    Material m2 = Material(vec4(0.9, 0.4, 0.1, 1.0), 1.0, 0.5, false);
     Material lm = Material(vec4(1.0), 0.0, 0.0, true);
     
     Sphere[] sphs = Sphere[] (
-        Sphere(vec3(0.0), 0.86, m1),
-        Sphere(vec3(0.0, 0.92, 0.0), 0.05, m2),
+        Sphere(vec3(0.0), 0.85, m1),
+        Sphere(vec3(0.0, 0.91, 0.0), 0.05, m2),
         Sphere(lightPos, 0.1, lm) // lightSrc
     );
     
@@ -92,7 +92,7 @@ vec4 skyColor(vec2 uv) {
     float blue = 0.5;
     
     vec4 color = vec4(red, green, blue, 1.0) * 1.5; 
-    
+    color = vec4(0.0);
     return color; //vec4(0.0);
 }
 
@@ -102,9 +102,7 @@ RenderData worldRender(vec2 uv, Ray ray) {
     //worldLight();
     
     Scene scene = world(ray);
-    if(scene.d >= MAX_DIST) return RenderData(scene, skyColor(uv));
-    //vec3 closestHit = scene.closestHit.pos;
-
+    //if(scene.d >= MAX_DIST) return RenderData(scene, skyColor(uv));
     // Because normals only work for (a,b)=(0,0), gotta shift ray.origin
     //ray.origin -= closestHit;
 
@@ -119,23 +117,30 @@ RenderData worldRender(vec2 uv, Ray ray) {
             
             ray.origin -= closestHit;
             
-            vec3 normals = worldNormals(ray, scene.d);
+            vec3 hitPoint = ray.origin + (ray.dir*scene.d);
+            vec3 normals = normalize(hitPoint);
             
-            vec3 lightDir = normalize(lightPos - closestHit);
-            float shadedScene = dot(normals, lightDir) + 1.0;
-            shadedScene/=2.0; // Remap normals from [-1 1] to [0 1]
+            
+            // Shade/Color
+            vec3 lightDir = normalize(lightPos);
+            float shadedScene = dot(normals, lightDir);
+            //shadedScene+=1.0;
+            //shadedScene/=2.0; // Remap normals from [-1 1] to [0 1]
 
             float al = 0.25;
 
-            vec3 hitPoint = ray.origin + (ray.dir*scene.d);
-            vec4 ambientShadedScene = vec4(clamp(shadedScene, al, 1.0));
+            if(i == MAX_LIGHT_BOUNCES-1 ) { color *= 0.1; break; }
+            
+            vec4 ambientShadedScene = vec4(max(shadedScene, 0.0));
             vec4 hitColor = scene.closestHit.mat.albedo;
             color += ambientShadedScene * hitColor * decay;
             //color = vec4(ray.dir, 1.0);
             //color = vec4(vec3(scene.d), 0.0);
             //color = vec4(hitPoint, 0.0);
+            //
             
-            ray.origin = hitPoint + closestHit - normals * 0.01;
+            // Trace
+            ray.origin = hitPoint + closestHit + normals * 0.001;
             
             float aspect = iResolution.x / iResolution.y;
             vec2 aspectlessUV = uv;
@@ -144,11 +149,13 @@ RenderData worldRender(vec2 uv, Ray ray) {
             uint seed = uint(uint(uint(fc.x) * uint(1973) + uint(fc.y) * uint(9277) + uint(iFrame) * uint(26699)) | uint(1));
             //float seed = 1.0;
             
+            
             vec3 randomSpread = RandomUnitVector(seed); //vec3( randomRange(uv*iTime, -0.5, 0.5), randomRange(uv*iTime, -0.5, 0.5), randomRange(uv*iTime, -0.5, 0.5) );
             vec3 normalShift = scene.closestHit.mat.roughness *  randomSpread;
             ray.dir = normalize(reflect(ray.dir, normals + normalShift));
             
-            decay *= 0.6;
+            
+            decay *= 0.5;
         }
         
         return RenderData(scene, color);
