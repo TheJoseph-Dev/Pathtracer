@@ -13,3 +13,6 @@ bin-int/
 !vendor/bin
 
 x64/
+Dependencies/
+.*
+!/.gitignore
