@@ -22,25 +22,35 @@ class OBJLoader {
 	std::vector<glm::vec2> textureCoords = std::vector<glm::vec2>();
 	std::vector<glm::vec3> normals = std::vector<glm::vec3>();
 
-	float* vertices = nullptr;
-	int verticesSize = 0;
-	int verticesCount = 0;
+	struct VertexData {
+		float* vertices = nullptr;
+		int verticesSize = 0; // Considers Stride, but not type
+		int verticesCount = 0; // Just the vertices count
+
+		float* vPos = nullptr; // Only the vertex positions
+	};
+
+	VertexData vData;
+	VertexData ssbVData;
 
 public:
 	OBJLoader(const char* filepath);
 
-	~OBJLoader() { delete[] vertices; };
+	~OBJLoader() { delete[] vData.vertices; };
 
 private:
 	glm::vec3 LoadVertexData(const std::string& data);
 	std::vector<Vertex> LoadFace(const std::string& face);
 	Vertex CreateVertex(const std::string& indicies);
 	void CreateVertexArray(const std::vector<Vertex>& loadedVertices);
+	void CreateSSBuffer(const std::vector<Vertex>& loadedVertices);
 
 public:
-	float* GetVertices() const { return vertices; }
-	int GetVerticesSize() const { return verticesSize; }
-	int GetVerticesCount() const { return verticesCount; }
+	VertexData GetVerticesAsSSBuffer() const { return ssbVData; };
+
+	VertexData GetVertices() const { return vData; }
+
+	std::vector<glm::vec3> GetPositions() const { return positions; }
 };
 
 #endif // !OBJLOADER_H

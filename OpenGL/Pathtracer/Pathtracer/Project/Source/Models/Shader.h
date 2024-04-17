@@ -73,5 +73,17 @@ public:
 	}
 };
 
+class SSBO {
+	uint32_t buffer = 0;
+
+public:
+	SSBO();
+	~SSBO();
+
+	void Bind(unsigned int bind = 0);
+	void SendData(uint32_t size, void* data);
+	void Unbind();
+};
+
 
 #endif // SHADER_H

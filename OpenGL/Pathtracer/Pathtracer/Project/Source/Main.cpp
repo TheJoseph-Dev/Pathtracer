@@ -50,7 +50,7 @@ int main() {
 
 	// End Init ---
 
-	Camera camera = Camera(glm::vec3(0.0f, 0.9f, -0.1f));
+	Camera camera = Camera(glm::vec3(0.0f, 0.9f, -0.6f));
 	//camera.Rotate(glm::vec3(1.57/2.0f, 0, 0));
 
 	float canvasVertices[] = {
@@ -78,6 +78,17 @@ int main() {
 	glEnableVertexAttribArray(1);
 	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, stride * sizeof(float), (void*)(sizeof(float)*3));
 
+	OBJLoader py = OBJLoader(Resources("3D Models/Py.obj"));
+	auto pyData = py.GetVerticesAsSSBuffer();
+	// Triangles => vec3
+	// Materials => Mat
+
+	SSBO meshSSBO;
+	meshSSBO.Bind(10);
+	meshSSBO.SendData((long)(pyData.verticesSize * sizeof(float)), (void*)pyData.vPos);
+	//meshSSBO.SendData((long)(ps.size() * 4 * sizeof(float)), (void*)psd);
+	meshSSBO.Unbind();
+
 	FrameBuffer fb = FrameBuffer(WINDOW_WIDTH, WINDOW_HEIGHT, false, 0);
 	fb.Check();
 	fb.Unbind();
@@ -96,6 +107,7 @@ int main() {
 	Shader canvasShader = Shader(Resources("Shaders/pathtracer.glsl"));
 	canvasShader.Bind();
 	canvasShader.SetUniform2f("iResolution", WINDOW_WIDTH, WINDOW_HEIGHT);
+	canvasShader.SetUniformInt("vCount", pyData.verticesCount);
 
 	glm::mat4 mvp = glm::mat4(1.0f);
 	glm::mat4 proj = glm::ortho(0.0f, WINDOW_WIDTH, WINDOW_HEIGHT, 0.0f);
@@ -122,6 +134,7 @@ int main() {
 		mvp = proj * model;
 
 		canvasShader.Bind();
+		//camera.set(glm::vec3(sin(time), 0.0f, cos(time)*0.5));
 		glm::vec3 cameraPos = camera.GetPosition();
 		glm::vec3 cameraRot = camera.GetRotation();
 		canvasShader.SetUniform3f("cameraPos", cameraPos.x, cameraPos.y, cameraPos.z);

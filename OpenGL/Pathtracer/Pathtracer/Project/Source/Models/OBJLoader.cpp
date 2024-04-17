@@ -44,6 +44,7 @@ OBJLoader::OBJLoader(const char* filepath) {
 	}
 
 	CreateVertexArray(objVertices);
+	CreateSSBuffer(objVertices);
 }
 
 // v, vt, vn
@@ -98,17 +99,15 @@ Vertex OBJLoader::CreateVertex(const std::string& indicies) {
 
 
 void OBJLoader::CreateVertexArray(const std::vector<Vertex>& loadedVertices) {
-	int arrSize = Vertex::GetStride() * loadedVertices.size();
-	this->vertices = new float[arrSize];
-	this->verticesSize = arrSize;
-	this->verticesCount = loadedVertices.size();
-	std::vector<Vertex> lv = loadedVertices;
+	uint32_t arrSize = Vertex::GetStride() * loadedVertices.size();
+	this->vData.vertices = new float[arrSize];
+	this->vData.verticesSize = arrSize;
+	this->vData.verticesCount = loadedVertices.size();
+	const std::vector<Vertex>& lv = loadedVertices;
 	//std::reverse(lv.begin(), lv.end());
 
+	float* vertices = (this->vData.vertices);
 	std::ofstream outfile("Project/Resources/vertices.txt");
-
-	//outfile << "my text here!" << std::endl;
-
 
 	for (int i = 0, k = 0; k < lv.size(); i += Vertex::GetStride(), k++) {
 		*(vertices + i + 0) = lv.at(k).position.x;
@@ -137,5 +136,38 @@ void OBJLoader::CreateVertexArray(const std::vector<Vertex>& loadedVertices) {
 	}
 
 	outfile.close();
-	//for (int i = 0; i < verticesSize, )
+
+
+}
+
+void OBJLoader::CreateSSBuffer(const std::vector<Vertex>& loadedVertices) {
+	// SSBData
+	uint32_t arrSize = (Vertex::GetStride()+2) * loadedVertices.size();
+	this->ssbVData.vertices = new float[arrSize];
+	this->ssbVData.vPos = new float[4 * loadedVertices.size()];
+	this->ssbVData.verticesSize = arrSize;
+	this->ssbVData.verticesCount = loadedVertices.size();
+	const std::vector<Vertex>& lv = loadedVertices;
+
+	float* vertices = (this->ssbVData.vertices);
+	float* vPos = (this->ssbVData.vPos);
+	for (int i = 0, j = 0, k = 0; k < lv.size(); i += Vertex::GetStride() + 2, j += 4, k++) {
+		*(vertices + i + 0) = lv.at(k).position.x;
+		*(vertices + i + 1) = lv.at(k).position.y;
+		*(vertices + i + 2) = lv.at(k).position.z;
+		*(vertices + i + 3) = 0.0f;
+
+		*(vPos + j + 0) = lv.at(k).position.x;
+		*(vPos + j + 1) = lv.at(k).position.y;
+		*(vPos + j + 2) = lv.at(k).position.z;
+		*(vPos + j + 3) = 0.0f;
+
+		*(vertices + i + 4) = lv.at(k).textureCoord.x;
+		*(vertices + i + 5) = lv.at(k).textureCoord.y;
+
+		*(vertices + i + 6) = lv.at(k).normal.x;
+		*(vertices + i + 7) = lv.at(k).normal.y;
+		*(vertices + i + 8) = lv.at(k).normal.z;
+		*(vertices + i + 9) = 0.0f;
+	}
 }

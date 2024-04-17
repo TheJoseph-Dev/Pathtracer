@@ -85,7 +85,7 @@ void main() {
     if(shouldTonemap == 1) {
         tColor /= float(iFrame+1);
         float exposure = 0.5;
-        tColor *= exposure;
+        //tColor *= exposure;
         tColor = ACESFitted(tColor.rgb);
         //tColor = 1.0-tColor;
     }

@@ -90,3 +90,17 @@ void Shader::Create(ShadersData sources) {
 void Shader::Bind() const {
 	glUseProgram(this->rendererID);
 }
+
+
+// SSBO
+
+SSBO::SSBO() {
+	glGenBuffers(1, &buffer);
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, buffer);
+};
+
+SSBO::~SSBO() {};
+
+void SSBO::Bind(unsigned int bind) { glBindBufferBase(GL_SHADER_STORAGE_BUFFER, bind, buffer); }
+void SSBO::SendData(uint32_t size, void* data) { glBufferData(GL_SHADER_STORAGE_BUFFER, size, data, GL_STATIC_DRAW); }
+void SSBO::Unbind() { glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0); }
