@@ -102,5 +102,5 @@ SSBO::SSBO() {
 SSBO::~SSBO() {};
 
 void SSBO::Bind(unsigned int bind) { glBindBufferBase(GL_SHADER_STORAGE_BUFFER, bind, buffer); }
-void SSBO::SendData(uint32_t size, void* data) { glBufferData(GL_SHADER_STORAGE_BUFFER, size, data, GL_STATIC_DRAW); }
+void SSBO::SendData(uint32_t size, void* data) { glBufferData(GL_SHADER_STORAGE_BUFFER, size, data, GL_DYNAMIC_DRAW); }
 void SSBO::Unbind() { glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0); }

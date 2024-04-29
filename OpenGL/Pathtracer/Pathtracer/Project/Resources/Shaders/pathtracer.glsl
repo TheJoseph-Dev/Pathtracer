@@ -24,31 +24,55 @@ uniform float iTime;
 uniform int iFrame;
 uniform sampler2D lastFrameTex;
 
-//uniform sampler2D screenTexture;
-//uniform int shouldTonemap;
-
 in vec2 TexCoords;
 
 uniform vec3 cameraPos;
 uniform vec3 cameraRot;
 
-struct Vertex {
-	vec4 position;
-    //vec2 uv;
-    //vec4 normal;
+struct MeshInfo {
+    vec4 vCount; // vec4 because gotta satisfy std430
+    vec4 gPos;
 };
 
-layout (std430, binding=10) readonly buffer meshData
+struct Vertex {
+	vec4 position;
+    vec4 uv;
+    vec4 normal;
+};
+
+struct ObjectInfo {
+    vec4 pos;
+    float type;
+    float matIndex;
+    float size;
+    float w;
+};
+
+layout (std430, binding=10) readonly buffer meshInfoData {
+   MeshInfo mInfo[];
+};
+
+layout (std430, binding=11) readonly buffer meshData
 { 
   Vertex vertices[];
+};
+
+layout (std430, binding=12) readonly buffer objsData {
+    ObjectInfo objsInfo[];
 };
 
 // Pathtracing
 
 // Common
 #define PI 3.14159265
-#define ACCUMULATE
+//#define ACCUMULATE
 #define EXPOSURE 0.5
+
+uniform int accumulate;
+
+mat2 rotation(float angle) {
+    return mat2(cos(angle), -sin(angle), sin(angle), cos(angle));
+}
 
 uint wang_hash(inout uint seed)
 {
@@ -264,73 +288,69 @@ vec3 triIntersect( in vec3 ro, in vec3 rd, in vec3 v0, in vec3 v1, in vec3 v2 )
 
 bool miss(float hit) { return hit <= MIN_TRACE_DIST || hit > MAX_DIST; }
 
-uniform int vCount;
+uniform sampler2D meshTexture;
+//uniform int mCount; // The meshes count coming from SSBO
+#define SPHERE_TYPE 0
+#define BOX_TYPE 1
+
 Scene world(Ray ray) {
     Scene scene;
     scene.d = MAX_DIST;
     
-    Material m1 = Material(vec4(0.1, 0.7, 0.9, 1.0), 0.0, 1.0, 0.0, 0.0, 0.0, vec3(0.0), 0.0); // sin(iTime)*0.5 + 0.5
+    Material m1 = Material(vec4(0.1, 0.7, 0.9, 1.0), 0.0, 1.0, 0.0, 0.0, 0.0, vec3(0.0), 0.0);
     Material m2 = Material(vec4(0.9, 0.4, 0.1, 1.0), 0.0, 1.0, 0.5, 0.0, 0.0, vec3(0.0), 0.0);
     Material refM = Material(vec4(0.2, 0.3, 0.8, 1.0), 0.7, 0.1, 0.0, 1.0, 0.0, vec3(0.0), 0.0);
+    Material wRefM = Material(vec4(1.0), 0.02, 0.5, 0.0, 2.0, 0.0, vec3(0.0), 0.0);
     
     Material wlm = Material(vec4(0.0), 0.0, 1.0, 0.0, 0.0, 0.0, vec3(1.0), 20.0);
-    Material lm = Material(vec4(0.0), 0.0, 1.0, 0.0, 0.0, 0.0, vec3(0.9, 0.5, 0.1), 20.0);
+    Material lm = Material(vec4(0.0), 0.0, 1.0, 0.0, 0.0, 0.0, vec3(0.9, 0.5, 0.1), 10.0);
     
-    Sphere[] sphs = Sphere[] (
-        Sphere(vec3(0.0), 0.85, m1),
-        //Sphere(vec3(0.0, 0.9, 0.0), 0.05, m2),
-        Sphere(lightPos, 2.0, wlm) // lightSrc
-    );
-    
-    for(int i = 0; i < 2; i++) { 
-        float sphereHit = iSphere(ray, sphs[i]);
-        if (miss(sphereHit)) continue;
-        scene.d = min(scene.d, sphereHit);
-        vec3 normal = normalize(ray.origin - sphs[i].pos + scene.d * ray.dir);
-        SceneObject obj = SceneObject(sphs[i].pos, normal, sphs[i].mat);
-        if (scene.d == sphereHit) scene.closestHit = obj;
+    Material[] mats = Material[] ( m1, m2, refM, wRefM, wlm, lm );
+
+    for(int i = 0; i < objsInfo.length(); i++) {
+        ObjectInfo objInfo = objsInfo[i];
+        if(objInfo.type == SPHERE_TYPE) {
+            Sphere sph = Sphere(objInfo.pos.xyz, objInfo.size, mats[int(objInfo.matIndex)]);
+            float sphereHit = iSphere(ray, sph);
+            if (miss(sphereHit)) continue;
+            scene.d = min(scene.d, sphereHit);
+            vec3 normal = normalize(ray.origin - objInfo.pos.xyz + scene.d * ray.dir);
+            SceneObject obj = SceneObject(objInfo.pos.xyz, normal, sph.mat);
+            if (scene.d == sphereHit) scene.closestHit = obj;
+        }
+        else if(objInfo.type == BOX_TYPE) {
+            Box box = Box(objInfo.pos.xyz, vec3(objInfo.size), mats[int(objInfo.matIndex)]);
+            vec3 normal = vec3(0.0);
+            float boxHit = boxIntersection(ray.origin - objInfo.pos.xyz, ray.dir, box.size, normal);
+            if (miss(boxHit)) continue;
+            scene.d = min(scene.d, boxHit);
+            SceneObject obj = SceneObject(objInfo.pos.xyz, normalize(normal), box.mat);
+            if (scene.d == boxHit) scene.closestHit = obj;
+        }
     }
 
-    Box[] boxes = Box[] (
-        Box(vec3(0.0, 1.2, .0), vec3(0.5, 0.1, 0.1), m2)
-    );
+    Material texM = Material(vec4(0.0), 0.0, 1.0, 0.5, 0.0, 0.0, vec3(0.0), 0.0);
+    for(int m = 0; m < mInfo.length(); m++) {
+        for (int i = int(mInfo[m-1].vCount.x); i < mInfo[m].vCount.x; i+=3) {
+            vec3 posOffset = mInfo[m].gPos.xyz;
+            float size = 2.0;
+            vec3 v1 = vertices[i].position.xyz * size;
+            vec3 v2 = vertices[i+1].position.xyz * size;
+            vec3 v3 = vertices[i+2].position.xyz * size;
+            //v1.xz *= rotation(3.14/4.0); v2.xz *= rotation(3.14/4.0); v3.xz *= rotation(3.14/4.0);
+            vec3 n = normalize(vertices[i].normal).xyz;
+            //n.xz *=  rotation(3.14/4.0);
+            float triHit = triIntersect(ray.origin - posOffset, ray.dir, v1, v2, v3).x;
+            if (miss(triHit)) continue;
+            scene.d = min(scene.d, triHit);
 
-    for(int i = 0; i < 0; i++) {
-        vec3 normal = vec3(0.0);
-        float boxHit = boxIntersection(ray.origin - boxes[i].pos, ray.dir, boxes[i].size, normal);
-        if (miss(boxHit)) continue;
-        scene.d = min(scene.d, boxHit);
-        SceneObject obj = SceneObject(boxes[i].pos, normalize(normal), boxes[i].mat);
-        if (scene.d == boxHit) scene.closestHit = obj;
+            vec2 tC = vertices[i].uv.xy;
+            vec4 texColor = texture(meshTexture, tC);
+            texM.albedo = texColor;
+            SceneObject obj = SceneObject(posOffset, n, texM);
+            if (scene.d == triHit) scene.closestHit = obj;
+        }
     }
-
-    
-    for (int i = 0; i < vCount; i+=3) {
-        vec3 posOffset = vec3(0.0, 0.85, 0.0); //vec3(0.0, 0.9 + sin(iTime)+.0, -0.3);
-        float size = 2.0;
-        vec3 v1 = vertices[i].position.xyz * size;
-        vec3 v2 = vertices[i+1].position.xyz * size;
-        vec3 v3 = vertices[i+2].position.xyz * size;
-        vec3 n1 = cross(v1, v2);//vertices[i].normal;
-        float triHit = triIntersect(ray.origin - posOffset, ray.dir, v1, v2, v3).x;
-        if (miss(triHit)) continue;
-        scene.d = min(scene.d, triHit);
-        SceneObject obj = SceneObject(posOffset, normalize(n1), m2);
-        if (scene.d == triHit) scene.closestHit = obj;
-    }
-
-    /*for(int s = 0; s < vCount; s++) {
-        vec3 posOffset = vec3(0.0, 0.8, 0.0); //vec3(0.0, 0.9 + sin(iTime)+.0, -0.3);
-        float size = 1.0;
-        Sphere sph = Sphere( vertices[s].position.xyz + posOffset, 0.02, m2);
-        float sphereHit = iSphere(ray, sph);
-        if (miss(sphereHit)) continue;
-        scene.d = min(scene.d, sphereHit);
-        vec3 normal = normalize(ray.origin - sph.pos + scene.d * ray.dir);
-        SceneObject obj = SceneObject(sph.pos, normal, sph.mat);
-        if (scene.d == sphereHit) scene.closestHit = obj;
-    }*/
-    
 
     return scene;
 }
@@ -350,8 +370,8 @@ vec4 skyColor(vec2 uv) {
     float green = 0.25;
     float blue = 0.5;
     
-    vec4 color = vec4(red, green, blue, 1.0) * 2.0; 
-    //color = vec4(0.0);
+    vec4 color = vec4(red, green, blue, 1.0) * 1.0; 
+    //color = vec4(0.5);
     return color;
 }
 
@@ -390,6 +410,10 @@ RenderData worldRender(vec2 uv, Ray ray) {
         light += scene.closestHit.mat.emissivePower * (throughput + scene.closestHit.mat.emissiveColor*0.25);
         
         color = normals;
+
+        // do absorption if we are hitting from inside the object
+        // if (hitInfo.fromInside)
+        //    throughput *= exp(-hitInfo.material.refractionColor * hitInfo.dist);
         
         // Trace
         ray.origin = hitPoint + closestHit + normals*NORMAL_OFFSET;
@@ -405,6 +429,8 @@ RenderData worldRender(vec2 uv, Ray ray) {
                 scene.closestHit.mat.IOR,
                 ray.dir, normals, specularChance, 1.0f);  
         }
+
+        float refractChance = 1.0-scene.closestHit.mat.transmition;
         
         // calculate whether we are going to do a diffuse or specular reflection ray 
         float doSpecular = (RandomFloat01(seed) < specularChance) ? 1.0f : 0.0f;
@@ -428,10 +454,6 @@ RenderData worldRender(vec2 uv, Ray ray) {
         
     //light += throughput/float(MAX_LIGHT_BOUNCES/2);
     return RenderData(scene, vec4(light, 1.0));
-}
-
-mat2 rotation(float angle) {
-    return mat2(cos(angle), -sin(angle), sin(angle), cos(angle));
 }
 
 void main()
@@ -464,9 +486,7 @@ void main()
     vec3 lastFrame = texture(lastFrameTex, gl_FragCoord.xy/iResolution.xy).rgb;
     vec3 finalColor = finalRender.rgb;
     
-    #ifdef ACCUMULATE
-        finalColor += lastFrame;
-    #endif
+    if(accumulate == 1) finalColor += lastFrame;
     
     fragColor = vec4(finalColor, 1.0);
 }

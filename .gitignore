@@ -17,3 +17,4 @@ Dependencies/
 .*
 !/.gitignore
 *.txt
+imgui.ini

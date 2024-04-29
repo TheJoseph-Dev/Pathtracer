@@ -47,6 +47,11 @@ public:
 		glUniformMatrix4fv(location, 1, GL_FALSE, &matrix[0][0]);
 	}
 
+	void SetUniform4f(std::string name, float f1, float f2, float f3, float f4) const {
+		unsigned int location = GetUniformLocation(name);
+		glUniform4f(location, f1, f2, f3, f4);
+	}
+
 	void SetUniform3f(std::string name, float f1, float f2, float f3) const {
 		unsigned int location = GetUniformLocation(name);
 		glUniform3f(location, f1, f2, f3);

@@ -21,14 +21,22 @@ layout(location = 0) out vec4 fragColor;
 uniform vec2 iResolution;
 
 uniform sampler2D screenTexture;
+uniform sampler2D lastFrameTex;
 uniform int shouldTonemap;
 uniform int iFrame;
-uniform int accumulate;
 
 in vec2 TexCoords;
 
-// ACES fitted
-// from https://github.com/TheRealMJP/BakingLab/blob/master/BakingLab/ACES.hlsl
+vec3 ACESFilm(vec3 x)
+{
+    float a = 2.51f;
+    float b = 0.03f;
+    float c = 2.43f;
+    float d = 0.59f;
+    float e = 0.14f;
+    return clamp((x*(a*x + b)) / (x*(c*x + d) + e), 0.0f, 1.0f);
+}
+
 
 const mat3 ACESInputMat = mat3(
     0.59719, 0.35458, 0.04823,
@@ -65,30 +73,11 @@ vec3 ACESFitted(vec3 color)
     return color;
 }
 
-vec3 ACESFilm(vec3 x)
-{
-    float a = 2.51f;
-    float b = 0.03f;
-    float c = 2.43f;
-    float d = 0.59f;
-    float e = 0.14f;
-    return clamp((x*(a*x + b)) / (x*(c*x + d) + e), 0.0f, 1.0f);
-}
-
-vec4 contrast(vec4 color, float c) {
-    float rC = c/2.0;
-    return vec4(smoothstep(rC, 1.0-rC, color.rgb), 1.0);
-}
-
 void main() {
 	vec3 tColor = texture(screenTexture, TexCoords).rgb;
+    vec3 lastColor = texture(lastFrameTex, TexCoords).rgb;
     
-    if(shouldTonemap == 1) {
-        if(accumulate == 1) tColor /= float(iFrame+1);
-        float exposure = 0.5;
-        //tColor *= exposure;
-        tColor = ACESFitted(tColor.rgb);
-    }
+    vec3 tonemapped = ACESFilm(mix(lastColor, tColor, 0.85));
 
-	fragColor = vec4(tColor, 1.0);
+    fragColor = vec4(tonemapped, 1.0);
 }

@@ -215,10 +215,11 @@ void BloomFB::Draw(const FBTexture& srcTexture, float filterRadius, unsigned int
 	const glm::mat4 modelScale = glm::scale(glm::mat4(1.0f), glm::vec3(width, height, 0.0f));
 
 	//CreateBloomTexture();
-	srcTexture.Bind(1);
-
+	int srcTextureBind = mipSlot;
+	srcTexture.Bind(srcTextureBind);
 	this->downsampler.Bind();
 	this->downsampler.SetUniform2f("srcResolution", this->width, this->height);
+	this->downsampler.SetUniformInt("srcTexture", srcTextureBind);
 	this->downsampler.SetUniformMat4("MVP", mvp * modelScale);
 
 	// Bind srcTexture (HDR color buffer) as initial texture input
@@ -246,6 +247,7 @@ void BloomFB::Draw(const FBTexture& srcTexture, float filterRadius, unsigned int
 
 	this->upsampler.Bind();
 	this->upsampler.SetUniformFloat("filterRadius", filterRadius);
+	this->upsampler.SetUniformInt("srcTexture", srcTextureBind);
 	this->upsampler.SetUniformMat4("MVP", mvp * modelScale);
 
 	// Enable additive blending

@@ -27,7 +27,8 @@ class OBJLoader {
 		int verticesSize = 0; // Considers Stride, but not type
 		int verticesCount = 0; // Just the vertices count
 
-		float* vPos = nullptr; // Only the vertex positions
+		//float* vPos = nullptr; // Only the vertex positions
+		//float* vNPos = nullptr; // Only the vertex position and normals
 	};
 
 	VertexData vData;
@@ -36,7 +37,7 @@ class OBJLoader {
 public:
 	OBJLoader(const char* filepath);
 
-	~OBJLoader() { delete[] vData.vertices; };
+	~OBJLoader() { delete[] vData.vertices; delete[] ssbVData.vertices; };
 
 private:
 	glm::vec3 LoadVertexData(const std::string& data);

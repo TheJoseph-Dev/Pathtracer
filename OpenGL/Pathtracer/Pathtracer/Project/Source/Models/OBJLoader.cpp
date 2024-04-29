@@ -142,32 +142,29 @@ void OBJLoader::CreateVertexArray(const std::vector<Vertex>& loadedVertices) {
 
 void OBJLoader::CreateSSBuffer(const std::vector<Vertex>& loadedVertices) {
 	// SSBData
-	uint32_t arrSize = (Vertex::GetStride()+2) * loadedVertices.size();
+	constexpr uint32_t fill = 4;
+	const uint32_t filledStride = Vertex::GetStride() + fill;
+	uint32_t arrSize = filledStride * loadedVertices.size();
 	this->ssbVData.vertices = new float[arrSize];
-	this->ssbVData.vPos = new float[4 * loadedVertices.size()];
 	this->ssbVData.verticesSize = arrSize;
 	this->ssbVData.verticesCount = loadedVertices.size();
 	const std::vector<Vertex>& lv = loadedVertices;
 
 	float* vertices = (this->ssbVData.vertices);
-	float* vPos = (this->ssbVData.vPos);
-	for (int i = 0, j = 0, k = 0; k < lv.size(); i += Vertex::GetStride() + 2, j += 4, k++) {
+	for (int i = 0, k = 0; k < lv.size(); i += filledStride, k++) {
 		*(vertices + i + 0) = lv.at(k).position.x;
 		*(vertices + i + 1) = lv.at(k).position.y;
 		*(vertices + i + 2) = lv.at(k).position.z;
 		*(vertices + i + 3) = 0.0f;
 
-		*(vPos + j + 0) = lv.at(k).position.x;
-		*(vPos + j + 1) = lv.at(k).position.y;
-		*(vPos + j + 2) = lv.at(k).position.z;
-		*(vPos + j + 3) = 0.0f;
-
 		*(vertices + i + 4) = lv.at(k).textureCoord.x;
 		*(vertices + i + 5) = lv.at(k).textureCoord.y;
+		*(vertices + i + 6) = 0.0f;
+		*(vertices + i + 7) = 0.0f;
 
-		*(vertices + i + 6) = lv.at(k).normal.x;
-		*(vertices + i + 7) = lv.at(k).normal.y;
-		*(vertices + i + 8) = lv.at(k).normal.z;
-		*(vertices + i + 9) = 0.0f;
+		*(vertices + i + 8)  = lv.at(k).normal.x;
+		*(vertices + i + 9)  = lv.at(k).normal.y;
+		*(vertices + i + 10) = lv.at(k).normal.z;
+		*(vertices + i + 11) = 0.0f;
 	}
 }
