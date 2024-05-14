@@ -86,7 +86,7 @@ int main() {
 	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, stride * sizeof(float), (void*)(sizeof(float)*3));
 
 	OBJLoader icoObj = OBJLoader(Resources("3D Models/ico.obj"));
-	float icoPos[4] = { 0.0, 0.85, 0.0, 0.0 };
+	float icoPos[4] = { 0.0, 1.2, 0.0, 0.0 };
 	auto icoObjData = icoObj.GetVerticesAsSSBuffer();
 	
 	OBJLoader pyObj = OBJLoader(Resources("3D Models/Py2.obj"));
@@ -138,7 +138,9 @@ int main() {
 	std::vector<ObjectInfo> objsInfo = std::vector<ObjectInfo>();
 	ObjectInfo floorSph = ObjectInfo(glm::vec4(0), 0, 0, 0.85f);
 	ObjectInfo l1Sph = ObjectInfo(glm::vec4(4.0f, 4.0f, 0.0f, 0.0f), 0, 5, 2.0f);
+	ObjectInfo refSph = ObjectInfo(glm::vec4(1.0f, 1.0f, 0.0f, 0.0f), 0, 2, 0.5f);
 	objsInfo.push_back(floorSph);
+	objsInfo.push_back(refSph);
 	objsInfo.push_back(l1Sph);
 
 	SSBO objsInfoSSBO;

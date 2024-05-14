@@ -121,40 +121,6 @@ vec3 LessThan(vec3 f, float value)
         (f.z < value) ? 1.0f : 0.0f);
 }
 
-vec3 LinearToSRGB(vec3 rgb)
-{
-    rgb = clamp(rgb, 0.0f, 1.0f);
-    
-    return mix(
-        pow(rgb, vec3(1.0f / 2.4f)) * 1.055f - 0.055f,
-        rgb * 12.92f,
-        LessThan(rgb, 0.0031308f)
-    );
-}
-
-vec3 SRGBToLinear(vec3 rgb)
-{
-    rgb = clamp(rgb, 0.0f, 1.0f);
-    
-    return mix(
-        pow(((rgb + 0.055f) / 1.055f), vec3(2.4f)),
-        rgb / 12.92f,
-        LessThan(rgb, 0.04045f)
-	);
-}
-
-// ACES tone mapping curve fit to go from HDR to LDR
-//https://knarkowicz.wordpress.com/2016/01/06/aces-filmic-tone-mapping-curve/
-vec3 ACESFilm(vec3 x)
-{
-    float a = 2.51f;
-    float b = 0.03f;
-    float c = 2.43f;
-    float d = 0.59f;
-    float e = 0.14f;
-    return clamp((x*(a*x + b)) / (x*(c*x + d) + e), 0.0f, 1.0f);
-}
-
 float FresnelReflectAmount(float n1, float n2, vec3 normal, vec3 incident, float f0, float f90)
 {
         // Schlick aproximation
@@ -189,7 +155,7 @@ struct Material {
     float roughness;
     float metalicness;
     float IOR;
-    float transmition;
+    float transmission;
     
     
     vec3 emissiveColor;
@@ -199,6 +165,7 @@ struct Material {
 struct SceneObject {
     vec3 pos;
     vec3 normal;
+    vec3 normal2;
     Material mat;
 };
 
@@ -216,6 +183,7 @@ struct Box {
 
 struct Scene {
     float d; // HitPoint Distance
+    float d2; // Second HitPoint (if exists)
     SceneObject closestHit;
 };
 
@@ -233,7 +201,7 @@ vec3 lightPos = (vec3(2.0, 3.0, 3.0))*1.0;
 
 
 
-float iSphere(in Ray ray, in Sphere sph)
+float iSphere(in Ray ray, in Sphere sph, out float d2)
 {
 	//sphere at origin has equation |xyz| = r
 	//sp |xyz|^2 = r^2.
@@ -247,7 +215,8 @@ float iSphere(in Ray ray, in Sphere sph)
 	
     const float missHit = -1.0;
 	float t = (h < 0.0) ? missHit : -b - sqrt(h); // We use -sqrt because we want the CLOSEST distance
-    
+    d2 = (h < 0.0) ? missHit : -b + sqrt(h);
+
 	return t;
 }
 
@@ -296,27 +265,33 @@ uniform sampler2D meshTexture;
 Scene world(Ray ray) {
     Scene scene;
     scene.d = MAX_DIST;
+    scene.d2 = MAX_DIST;
     
     Material m1 = Material(vec4(0.1, 0.7, 0.9, 1.0), 0.0, 1.0, 0.0, 0.0, 0.0, vec3(0.0), 0.0);
     Material m2 = Material(vec4(0.9, 0.4, 0.1, 1.0), 0.0, 1.0, 0.5, 0.0, 0.0, vec3(0.0), 0.0);
-    Material refM = Material(vec4(0.2, 0.3, 0.8, 1.0), 0.7, 0.1, 0.0, 1.0, 0.0, vec3(0.0), 0.0);
+    Material tranM = Material(vec4(1.0, 0.7, 0.9, 1.0), 0.7, 0.2, 0.0, 1.0, 0.4, vec3(0.0), 0.0);
     Material wRefM = Material(vec4(1.0), 0.02, 0.5, 0.0, 2.0, 0.0, vec3(0.0), 0.0);
     
     Material wlm = Material(vec4(0.0), 0.0, 1.0, 0.0, 0.0, 0.0, vec3(1.0), 20.0);
     Material lm = Material(vec4(0.0), 0.0, 1.0, 0.0, 0.0, 0.0, vec3(0.9, 0.5, 0.1), 10.0);
     
-    Material[] mats = Material[] ( m1, m2, refM, wRefM, wlm, lm );
+    Material[] mats = Material[] ( m1, m2, tranM, wRefM, wlm, lm );
 
     for(int i = 0; i < objsInfo.length(); i++) {
         ObjectInfo objInfo = objsInfo[i];
         if(objInfo.type == SPHERE_TYPE) {
             Sphere sph = Sphere(objInfo.pos.xyz, objInfo.size, mats[int(objInfo.matIndex)]);
-            float sphereHit = iSphere(ray, sph);
+            float d2;
+            float sphereHit = iSphere(ray, sph, d2);
             if (miss(sphereHit)) continue;
             scene.d = min(scene.d, sphereHit);
             vec3 normal = normalize(ray.origin - objInfo.pos.xyz + scene.d * ray.dir);
-            SceneObject obj = SceneObject(objInfo.pos.xyz, normal, sph.mat);
-            if (scene.d == sphereHit) scene.closestHit = obj;
+            vec3 normal2 = normalize(ray.origin - objInfo.pos.xyz + d2 * ray.dir);
+            SceneObject obj = SceneObject(objInfo.pos.xyz, normal, normal2, sph.mat);
+            if (scene.d == sphereHit) { 
+                scene.closestHit = obj;
+                scene.d2 = d2;
+            }
         }
         else if(objInfo.type == BOX_TYPE) {
             Box box = Box(objInfo.pos.xyz, vec3(objInfo.size), mats[int(objInfo.matIndex)]);
@@ -324,7 +299,7 @@ Scene world(Ray ray) {
             float boxHit = boxIntersection(ray.origin - objInfo.pos.xyz, ray.dir, box.size, normal);
             if (miss(boxHit)) continue;
             scene.d = min(scene.d, boxHit);
-            SceneObject obj = SceneObject(objInfo.pos.xyz, normalize(normal), box.mat);
+            SceneObject obj = SceneObject(objInfo.pos.xyz, normalize(normal), vec3(0.0), box.mat);
             if (scene.d == boxHit) scene.closestHit = obj;
         }
     }
@@ -347,7 +322,7 @@ Scene world(Ray ray) {
             vec2 tC = vertices[i].uv.xy;
             vec4 texColor = texture(meshTexture, tC);
             texM.albedo = texColor;
-            SceneObject obj = SceneObject(posOffset, n, texM);
+            SceneObject obj = SceneObject(posOffset, n, vec3(0.0), texM);
             if (scene.d == triHit) scene.closestHit = obj;
         }
     }
@@ -395,14 +370,12 @@ RenderData worldRender(vec2 uv, Ray ray) {
         if(scene.d >= MAX_DIST) { light += (skyColor(uv).rgb) * throughput; break; }
         vec3 closestHit = scene.closestHit.pos;
         vec3 normals = scene.closestHit.normal;
+        vec3 normals2 = scene.closestHit.normal2;
         
         if(i == MAX_LIGHT_BOUNCES-1 ) { light *= 0.0; break; }
 
         vec3 hitPoint = ray.origin - closestHit + (ray.dir*scene.d);
-        
-        //vec3 normals = normalize(hitPoint);
-        // Remap normals from [-1 1] to [0 1]
-        
+        vec3 hitPoint2 = ray.origin - closestHit + (ray.dir*scene.d2);
 
         vec4 hitColor = scene.closestHit.mat.albedo;
         
@@ -430,11 +403,38 @@ RenderData worldRender(vec2 uv, Ray ray) {
                 ray.dir, normals, specularChance, 1.0f);  
         }
 
-        float refractChance = 1.0-scene.closestHit.mat.transmition;
+        float refractChance = scene.closestHit.mat.transmission;
         
         // calculate whether we are going to do a diffuse or specular reflection ray 
         float doSpecular = (RandomFloat01(seed) < specularChance) ? 1.0f : 0.0f;
- 
+        float doRefraction = (RandomFloat01(seed) < refractChance) ? 1.0f : 0.0f;
+
+        if(doRefraction == 1.0f) {
+            ray.origin -= 2*NORMAL_OFFSET*normals;
+            ray.dir = normalize(refract(ray.dir, normals, 1.01/scene.closestHit.mat.IOR));
+
+            //Scene preRefTrace = world(ray);
+            ///normals2 = preRefTrace.closestHit.normal2;
+            //closestHit = preRefTrace.closestHit.pos;
+            //hitPoint2 = ray.origin - closestHit + (ray.dir*preRefTrace.d2);
+            //ray.origin = hitPoint2 + closestHit + normals2*NORMAL_OFFSET;
+            //ray.dir = normalize(refract(ray.dir, -normals2, preRefTrace.closestHit.mat.IOR/1.01));
+            //hitColor = preRefTrace.closestHit.mat.albedo;
+        
+            //throughput *= hitColor.rgb + preRefTrace.closestHit.mat.emissiveColor;
+            //light += preRefTrace.closestHit.mat.emissivePower * (throughput + preRefTrace.closestHit.mat.emissiveColor*0.25);
+
+            /*
+            vec3 randomSpread = RandomUnitVector(seed);
+            vec3 diffuseRayDir = normalize(-normals2 + randomSpread);
+            vec3 specularRayDir = reflect(ray.dir, -normals2);
+            float sqrRoughness = preRefTrace.closestHit.mat.roughness * preRefTrace.closestHit.mat.roughness;
+            vec3 glossyDir = mix(specularRayDir, diffuseRayDir, sqrRoughness);
+            specularRayDir = normalize(glossyDir);
+            ray.dir = mix(ray.dir, mix(diffuseRayDir, specularRayDir, doSpecular), 0.5);*/
+
+        }
+        else {
         // Calculate a new ray direction.
         // Diffuse uses a normal oriented cosine weighted hemisphere sample.
         // Perfectly smooth specular uses the reflection ray.
@@ -447,12 +447,23 @@ RenderData worldRender(vec2 uv, Ray ray) {
         vec3 glossyDir = mix(specularRayDir, diffuseRayDir, sqrRoughness);
         specularRayDir = normalize(glossyDir);
         ray.dir = mix(diffuseRayDir, specularRayDir, doSpecular);
-        
+        }
         //vec3 normalShift = scene.closestHit.mat.roughness * randomSpread;
         //ray.dir = normalize(ray.dir + normalShift); //normalize(reflect(ray.dir, normals + normalShift));
+
+        // Russian Roulette
+        // As the throughput gets smaller, the ray is more likely to get terminated early.
+        // Survivors have their value boosted to make up for fewer samples being in the average.
+        {
+        	float p = max(throughput.r, max(throughput.g, throughput.b));
+        	if (RandomFloat01(seed) > p)
+            	break;
+
+        	// Add the energy we 'lose' by randomly terminating paths
+        	throughput *= 1.0f / p;            
+        }
     }
         
-    //light += throughput/float(MAX_LIGHT_BOUNCES/2);
     return RenderData(scene, vec4(light, 1.0));
 }
 
