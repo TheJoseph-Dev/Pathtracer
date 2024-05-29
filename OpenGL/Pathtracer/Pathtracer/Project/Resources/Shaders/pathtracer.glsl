@@ -193,7 +193,7 @@ struct RenderData {
 };
 
 #define MAX_DIST 100.0
-#define MAX_LIGHT_BOUNCES 16
+#define MAX_LIGHT_BOUNCES 8
 #define MIN_TRACE_DIST 0.001
 #define NORMAL_OFFSET 0.001
 
@@ -268,14 +268,18 @@ Scene world(Ray ray) {
     scene.d2 = MAX_DIST;
     
     Material m1 = Material(vec4(0.1, 0.7, 0.9, 1.0), 0.0, 1.0, 0.0, 0.0, 0.0, vec3(0.0), 0.0);
-    Material m2 = Material(vec4(0.9, 0.4, 0.1, 1.0), 0.0, 1.0, 0.5, 0.0, 0.0, vec3(0.0), 0.0);
-    Material tranM = Material(vec4(1.0, 0.7, 0.9, 1.0), 0.7, 0.2, 0.0, 1.0, 0.4, vec3(0.0), 0.0);
-    Material wRefM = Material(vec4(1.0), 0.02, 0.5, 0.0, 2.0, 0.0, vec3(0.0), 0.0);
+    Material m2 = Material(vec4(1.0, 0.9, 0.8, 1.0), 0.0, 2.0, 0.0, 0.0, 0.0, vec3(0.0), 0.0);
+    Material tranM = Material(vec4(1.0), 0.7, 0.2, 0.0, 1.0, 0.4, vec3(0.0), 0.0);
+    Material wRefM = Material(vec4(0.9), 0.9, 0.9, 0.0, 1.0, 0.0, vec3(0.0), 0.0);
     
     Material wlm = Material(vec4(0.0), 0.0, 1.0, 0.0, 0.0, 0.0, vec3(1.0), 20.0);
-    Material lm = Material(vec4(0.0), 0.0, 1.0, 0.0, 0.0, 0.0, vec3(0.9, 0.5, 0.1), 10.0);
+    Material lm = Material(vec4(0.0), 0.0, 1.0, 0.0, 0.0, 0.0, vec3(0.9, 0.5, 0.1), 50.0);
+    Material bLight = Material(vec4(0.0), 0.0, 1.0, 0.0, 0.0, 0.0, vec3(0.0, 0.5, 1.0), 5.0); 
+    Material pRefM = Material(vec4(0.9, 0.5, 0.8, 1.0), 0.8, 0.7, 0.0, 1.0, 0.0, vec3(0.0), 0.0);
+    Material rLight = Material(vec4(0.0), 0.0, 1.0, 0.0, 0.0, 0.0, vec3(1.0, 0.2, 0.1), 2.0); 
+    Material gLight = Material(vec4(0.0), 0.0, 1.0, 0.0, 0.0, 0.0, vec3(0.2, 0.9, 0.8), 1.0);
     
-    Material[] mats = Material[] ( m1, m2, tranM, wRefM, wlm, lm );
+    Material[] mats = Material[] ( m1, m2, tranM, wRefM, pRefM, wlm, lm, rLight, gLight, bLight );
 
     for(int i = 0; i < objsInfo.length(); i++) {
         ObjectInfo objInfo = objsInfo[i];
@@ -308,7 +312,7 @@ Scene world(Ray ray) {
     for(int m = 0; m < mInfo.length(); m++) {
         for (int i = int(mInfo[m-1].vCount.x); i < mInfo[m].vCount.x; i+=3) {
             vec3 posOffset = mInfo[m].gPos.xyz;
-            float size = 2.0;
+            float size = 3.0;
             vec3 v1 = vertices[i].position.xyz * size;
             vec3 v2 = vertices[i+1].position.xyz * size;
             vec3 v3 = vertices[i+2].position.xyz * size;

@@ -85,13 +85,9 @@ int main() {
 	glEnableVertexAttribArray(1);
 	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, stride * sizeof(float), (void*)(sizeof(float)*3));
 
-	OBJLoader icoObj = OBJLoader(Resources("3D Models/ico.obj"));
-	float icoPos[4] = { 0.0, 1.2, 0.0, 0.0 };
-	auto icoObjData = icoObj.GetVerticesAsSSBuffer();
-	
-	OBJLoader pyObj = OBJLoader(Resources("3D Models/Py2.obj"));
-	float pyPos[4] = { 0.5, 1.1, 0.0, 0.0 };
-	auto pyObjData = pyObj.GetVerticesAsSSBuffer();
+	OBJLoader triangleObj = OBJLoader(Resources("3D Models/lpKnight.obj"));
+	float icoPos[4] = { 0.0, 0.5, 0.0, 0.0 };
+	auto triangleObjData = triangleObj.GetVerticesAsSSBuffer();
 
 	constexpr unsigned int objs = 1;
 	constexpr int mInfoStride = 8;
@@ -103,13 +99,13 @@ int main() {
 
 	MeshInfo mInfos[objs * mInfoStride] = { 
 		{
-			(icoObjData.verticesCount), 0.0f, 0.0f, 0.0f,
+			(triangleObjData.verticesCount), 0.0f, 0.0f, 0.0f,
 			icoPos[0], icoPos[1], icoPos[2], icoPos[3]
 		}
 	};
 	
-	unsigned int lObjsSize = icoObjData.verticesSize;
-	float* lObjsVertices = icoObjData.vertices;
+	unsigned int lObjsSize = triangleObjData.verticesSize;
+	float* lObjsVertices = triangleObjData.vertices;
 
 	Texture pyObjTex = Texture(Resources("Textures/Gold.jpg"));
 	pyObjTex.Load();
@@ -136,13 +132,28 @@ int main() {
 
 
 	std::vector<ObjectInfo> objsInfo = std::vector<ObjectInfo>();
-	ObjectInfo floorSph = ObjectInfo(glm::vec4(0), 0, 0, 0.85f);
-	ObjectInfo l1Sph = ObjectInfo(glm::vec4(4.0f, 4.0f, 0.0f, 0.0f), 0, 5, 2.0f);
-	ObjectInfo refSph = ObjectInfo(glm::vec4(1.0f, 1.0f, 0.0f, 0.0f), 0, 2, 0.5f);
-	objsInfo.push_back(floorSph);
+	ObjectInfo floorBox = ObjectInfo(glm::vec4(0.0, -0.7, 0.0, 0.0), 1, 0, 1.2f);
+	ObjectInfo l1Sph = ObjectInfo(glm::vec4(0.0f, 1.7f, -0.5f, 0.0f), 0, 6, 0.1f);
+	ObjectInfo lsBox = ObjectInfo(glm::vec4(-2.4f, 1.2f, 0.0f, 0.0f), 1, 1, 1.2f);
+	ObjectInfo rsBox = ObjectInfo(glm::vec4(2.4f, 1.2f, 0.0f, 0.0f), 1, 8, 1.2f);
+	ObjectInfo backBox = ObjectInfo(glm::vec4(0.0f, 1.2f, 2.4f, 0.0f), 1, 1, 1.2f);
+	ObjectInfo topBox = ObjectInfo(glm::vec4(0.0f, 3.6f, 0.0f, 0.0f), 1, 1, 1.2f);
+	ObjectInfo refSph = ObjectInfo(glm::vec4(0.8f, 0.9f, 0.5f, 0.0f), 0, 2, 0.3f);
+	ObjectInfo blSph = ObjectInfo(glm::vec4(-0.15f, 0.56f, -0.5f, 0.0f), 0, 9, 0.05f);
+	ObjectInfo spSph = ObjectInfo(glm::vec4(-0.3f, 0.7f, -0.3f, 0.0f), 0, 3, 0.15f);
+	ObjectInfo pRefSph = ObjectInfo(glm::vec4(0.6f, 0.65f, -0.5f, 0.0f), 0, 4, 0.15f);
+	ObjectInfo lCube = ObjectInfo(glm::vec4(0.4f, 0.525f, -0.7f, 0.0f), 1, 7, 0.025f);
+	objsInfo.push_back(floorBox);
+	objsInfo.push_back(lsBox);
+	objsInfo.push_back(rsBox);
+	objsInfo.push_back(backBox);
+	objsInfo.push_back(topBox);
 	objsInfo.push_back(refSph);
 	objsInfo.push_back(l1Sph);
-
+	objsInfo.push_back(blSph);
+	objsInfo.push_back(spSph);
+	objsInfo.push_back(pRefSph);
+	objsInfo.push_back(lCube);
 	SSBO objsInfoSSBO;
 	//objsInfoSSBO.Bind(12);
 	//objsInfoSSBO.SendData(sizeof(objsInfo), (void*)objsInfo);
